@@ -77,25 +77,25 @@ compute_vampire_component <- function(df, total_cols, exclude_cols, numerator_co
   df
 }
 #-----
-#' Bucket a percentage into the 0-5 VAMPIRE score using the configured
+#' Bucket a percentage into the 0-X VAMPIRE score using the configured
 #' breakpoints (`v_range` supplies the four interior breaks plus the top
-#' threshold for score 5).
-vampire_classify <- function(pct, v_range) {
+#' threshold for score X). X assigned by user.
+vampire_classify <- function(pct, v_range, maxV) {
   breaks <- c(-Inf, v_range, Inf)
-  score  <- cut(pct, breaks = breaks, labels = 0:5, right = FALSE)
+  score  <- cut(pct, breaks = breaks, maxV, right = FALSE)
   as.numeric(as.character(score))
 }
 #-----
 #' Merge a component's data onto the postcode geometry and save a choropleth.
-save_vampire_map <- function(post, df, fill_var, year, out_path, width, height,
-                             fill_limits = c(0, 5)) {
+save_vampire_map <- function(post, df, fill_var, year, out_path, width, height, maxV)
+{
   merged <- merge(post, df, by = "GEO", all.x = FALSE)
   
   p <- ggplot(merged) +
     geom_sf(aes(fill = .data[[fill_var]]), size = 0.02) +
     scale_fill_continuous(
-      limits = fill_limits, low = "green", high = "red",
-      labels = function(x) formatC(x, format = "f", digits = 0)
+      limits = c(0,maxV), low = "green", high = "red",
+      labels = function(x) formatC(x, format = "f", digits = 1)
     ) +
     ggtitle(bquote("VAMPIRE" ~ .(year))) +
     theme_void()
@@ -140,7 +140,7 @@ compute_income_quantile_bands <- function(a_inc, v_range) {
   q      <- quantile(a_inc, probs = c(0, 1, v_range))
   bucket <- as.integer(cut(a_inc, breaks = c(-Inf, q[3:7], Inf), right = FALSE))
   
-  score  <- c(5, 4, 3, 2, 1, 0)[bucket]
+  score  <- c(10, 8, 6, 4, 2, 0)[bucket]
   bottom <- c(q[1], q[3], q[4], q[5], q[6], q[7])[bucket]
   top    <- c(q[3], q[4], q[5], q[6], q[7], q[2])[bucket]
   name   <- paste(
@@ -196,14 +196,14 @@ vamp <- compute_vampire_component(
   exclude_cols   = c("Not.stated", "Not.applicable"),
   numerator_cols = c("Two.motor.vehicles", "Three.motor.vehicles", "Four.or.more.motor.vehicles")
 )
-vamp$MV <- vampire_classify(vamp$vamPct, v_range)
+vamp$MV <- vampire_classify(vamp$vamPct, v_range, c(0,1,2,3,4,5))
 vamp$MV[vamp$vamTot == 0] <- NA
 
 write.csv ( vamp , file = paste0 ( results_dir  , "/d_VAMPIRE_motorVehicles_" , year , ".csv" ) , row.names = FALSE )
 save_vampire_map(
   post, vamp, "MV", year,
   paste0 ( results_dir , "/" , "p_VAMPIRE_motorVehicles_", year, ".png"),
-  width, height
+  width, height , 5
 )
 
 mv <- rename_component_cols(vamp, names(vamp)[2:(ncol(vamp)-1)] , "mvs_")
@@ -219,14 +219,14 @@ vamp <- compute_vampire_component(
   exclude_cols   = c("Worked.at.home.or.did.not.go.to.work", "Not.stated", "Not.applicable"),
   numerator_cols = "Vehicle"
 )
-vamp$JTW <- vampire_classify(vamp$vamPct, v_range)
+vamp$JTW <- vampire_classify(vamp$vamPct, v_range, c(0,1,2,3,4,5))
 vamp$JTW[vamp$vamTot == 0] <- NA
 
 write.csv ( vamp , file = paste0 ( results_dir  , "/d_VAMPIRE_journeyToWork_" , year , ".csv" ) , row.names = FALSE )
 save_vampire_map(
   post, vamp, "JTW", year,
   paste0( results_dir , "/" , "p_VAMPIRE_journeyToWork_", year , ".png"),
-  width, height
+  width, height , 5
 )
 
 jtw <- rename_component_cols(vamp, names(vamp)[2:(ncol(vamp)-1)] , "jtw_")
@@ -242,14 +242,14 @@ vamp <- compute_vampire_component(
   exclude_cols   = c("Not.stated", "Not.applicable"),
   numerator_cols = "Owned.with.a.mortgage"
 )
-vamp$TEN <- vampire_classify(vamp$vamPct, v_range)
+vamp$TEN <- vampire_classify(vamp$vamPct, v_range, c(0,2,4,6,8,10))
 vamp$TEN[vamp$vamTot == 0] <- NA
 
 write.csv ( vamp , file = paste0 ( results_dir  , "/d_VAMPIRE_Tenure_" , year , ".csv" ) , row.names = FALSE )
 save_vampire_map(
   post, vamp, "TEN", year,
   paste0( results_dir , "/" , "p_VAMPIRE_Tenure_", year, ".png"),
-  width, height
+  width, height , 10
 )
 
 ten <- rename_component_cols(vamp, names(vamp)[2:(ncol(vamp)-1)] , "ten_")
@@ -263,7 +263,7 @@ vamp$adjTot <- rowSums (vamp[, 2:25], na.rm = TRUE)
 vamp$vamTot <- vamp$adjTot - vamp$All.incomes.not.stated - vamp$Not.applicable - vamp$Negative.income - vamp$Nil.income
 vamp$aInc   <- compute_weighted_income(vamp)
 
-bands        <- compute_income_quantile_bands(vamp$aInc, v_range)
+bands        <- compute_income_quantile_bands(vamp$aInc, v_range )
 vamp$INCqNam <- bands$name
 vamp$INCqBot <- bands$bottom
 vamp$INCqTop <- bands$top
@@ -274,7 +274,7 @@ write.csv ( vamp , file = paste0 ( results_dir  ,  "/d_VAMPIRE_Income_" , year ,
 save_vampire_map(
   post, vamp, "INC", year,
   paste0( results_dir , "/" , "p_VAMPIRE_Income_", year , ".png"),
-  width, height
+  width, height , 10
 )
 
 inc <- rename_component_cols( vamp , names(vamp)[2:(ncol(vamp)-1)] , "inc_" )
@@ -289,7 +289,7 @@ write.csv ( vamp , paste0( results_dir, "/d_VAMPIRE_ALLcomponents_", year, ".csv
 save_vampire_map(
   post, vamp, "VAM", year,
   paste0( results_dir , "/" , "p_VAMPIRE_Composite_", year , ".png"),
-  width, height, fill_limits = c(0, 20)
+  width, height, 30
 )
 #--
 ####-----END VAMPIRE--------------------
