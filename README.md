@@ -1,5 +1,6 @@
 # VAMPIRe
 Handover of code for auto-processing of data to generate the 2021 VAMPIRE and eVAMPIRE indexes for Adelaide,  posted on 27 September 2026.
+Code updated in November 2026 to change from colour gradient in maps to five specified colors
 
 ## Further information about the original and updated VAMPIRE indices will be added to this section
 

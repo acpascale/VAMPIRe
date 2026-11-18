@@ -3,6 +3,7 @@
 ##   Created:        May 2026
 ##   Updated:        August 2026 -- moved from SA1 to POAs
 ##   Updated:        September 2026 -- cleaned and modularized code using Claude Sonnet 5 Medium, "Convert code to best practice R with function calls"
+##   Updated:        November 2026 -- move away from gradient to five specified colors (using Chat GPT to recode)
 ##
 
 ##   Datasets not included as owned by ABS: 
@@ -87,16 +88,30 @@ vampire_classify <- function(pct, v_range, maxV) {
 }
 #-----
 #' Merge a component's data onto the postcode geometry and save a choropleth.
-save_vampire_map <- function(post, df, fill_var, year, out_path, width, height, maxV)
+save_vampire_map <- function(post, df, fill_var, year, out_path, width, height, fill_limits )
 {
   merged <- merge(post, df, by = "GEO", all.x = FALSE)
   
+  # Six boundaries defining five equal-width bands [chat GPT]
+  fill_breaks <- seq(fill_limits[1], fill_limits[2], length.out = 6)
+  
   p <- ggplot(merged) +
     geom_sf(aes(fill = .data[[fill_var]]), size = 0.02) +
-    scale_fill_continuous(
-      limits = c(0,maxV), low = "green", high = "red",
+    scale_fill_stepsn (  #[Chat GPt])
+      limits = fill_limits,
+      breaks = fill_breaks[2:5],
+      colours = c(
+        "#43A343",  # green
+        "#99CC33",  # yellow-green
+        "#FFB515",  # amber
+        "#E95723",  # orange
+        "#B51F24"   # dark red
+      ), 
+      values = seq(0.1, 0.9, length.out = 5),
+      show.limits = TRUE,
+      na.value = "grey85",
       labels = function(x) formatC(x, format = "f", digits = 1)
-    ) +
+    ) + # (  #[end Chat GPt])
     ggtitle(bquote("VAMPIRE" ~ .(year))) +
     theme_void()
   
@@ -203,7 +218,7 @@ write.csv ( vamp , file = paste0 ( results_dir  , "/d_VAMPIRE_motorVehicles_" , 
 save_vampire_map(
   post, vamp, "MV", year,
   paste0 ( results_dir , "/" , "p_VAMPIRE_motorVehicles_", year, ".png"),
-  width, height , 5
+  width, height , fill_limits = c(0, 5)
 )
 
 mv <- rename_component_cols(vamp, names(vamp)[2:(ncol(vamp)-1)] , "mvs_")
@@ -226,7 +241,7 @@ write.csv ( vamp , file = paste0 ( results_dir  , "/d_VAMPIRE_journeyToWork_" , 
 save_vampire_map(
   post, vamp, "JTW", year,
   paste0( results_dir , "/" , "p_VAMPIRE_journeyToWork_", year , ".png"),
-  width, height , 5
+  width, height , fill_limits = c(0, 5)
 )
 
 jtw <- rename_component_cols(vamp, names(vamp)[2:(ncol(vamp)-1)] , "jtw_")
@@ -249,7 +264,7 @@ write.csv ( vamp , file = paste0 ( results_dir  , "/d_VAMPIRE_Tenure_" , year , 
 save_vampire_map(
   post, vamp, "TEN", year,
   paste0( results_dir , "/" , "p_VAMPIRE_Tenure_", year, ".png"),
-  width, height , 10
+  width, height , fill_limits = c(0, 10)
 )
 
 ten <- rename_component_cols(vamp, names(vamp)[2:(ncol(vamp)-1)] , "ten_")
@@ -274,7 +289,7 @@ write.csv ( vamp , file = paste0 ( results_dir  ,  "/d_VAMPIRE_Income_" , year ,
 save_vampire_map(
   post, vamp, "INC", year,
   paste0( results_dir , "/" , "p_VAMPIRE_Income_", year , ".png"),
-  width, height , 10
+  width, height , fill_limits = c(0, 10)
 )
 
 inc <- rename_component_cols( vamp , names(vamp)[2:(ncol(vamp)-1)] , "inc_" )
@@ -289,7 +304,7 @@ write.csv ( vamp , paste0( results_dir, "/d_VAMPIRE_ALLcomponents_", year, ".csv
 save_vampire_map(
   post, vamp, "VAM", year,
   paste0( results_dir , "/" , "p_VAMPIRE_Composite_", year , ".png"),
-  width, height, 30
+  width, height, fill_limits = c(0, 30)
 )
 #--
 ####-----END VAMPIRE--------------------

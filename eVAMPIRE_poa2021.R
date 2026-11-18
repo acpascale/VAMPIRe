@@ -3,6 +3,8 @@
 ##   Created:        May 2026
 ##   Updated:        August 2026
 ##   Updated:        September 2026 -- cleaned and modularized code using Claude Sonnet 5 Medium, "Convert code to best practice R with function calls"
+##   Updated:        November 2026 -- move away from gradient to five specified colors (using Chat GPT to recode)
+##
 
 ##   Datasets not included as owned by ABS, AAA, AECR: 
 ##   [1] Postcodes and Postal Areas, ABS - https://www.abs.gov.au/websitedbs/censushome.nsf/home/factsheetspoa?opendocument&navpos=450
@@ -73,12 +75,30 @@ save_evampire_map <- function(post, df, fill_var, year, out_path, width, height,
                               fill_limits = c(0, 5)) {
   merged <- merge(post, df, by = "GEO", all.x = FALSE)
   
+  # Six boundaries defining five equal-width bands [chat GPT]
+  fill_breaks <- seq(fill_limits[1], fill_limits[2], length.out = 6)
+  
   p <- ggplot(merged) +
     geom_sf(aes(fill = .data[[fill_var]]), size = 0.02) +
-    scale_fill_continuous(
-      limits = fill_limits, low = "green", high = "red",
+    scale_fill_stepsn (  #[Chat GPt])
+      limits = fill_limits,
+      breaks = fill_breaks[2:5],
+      colours = c(
+        "#43A343",  # green
+        "#99CC33",  # yellow-green
+        "#FFB515",  # amber
+        "#E95723",  # orange
+        "#B51F24"   # dark red
+      ), 
+      values = seq(0.1, 0.9, length.out = 5),
+      show.limits = TRUE,
+      na.value = "grey85",
       labels = function(x) formatC(x, format = "f", digits = 1)
-    ) +
+    ) + # (  #[end Chat GPt])
+#    scale_fill_continuous(
+#      limits = fill_limits, low = "olivedrab", high = "darkorange2", #low = "royalblue1", high = "salmon",  #low = "darkolivegreen", high = "firebrick4",
+#      labels = function(x) formatC(x, format = "f", digits = 1)
+#    ) +
     ggtitle(bquote("eVAMPIRE" ~ .(year))) +
     theme_void()
   
